@@ -7,11 +7,15 @@ import {
   daysUntil,
 } from "../lib/subscription";
 
-function todayStr() {
-  const d = new Date();
+function dateStr(value) {
+  const d = new Date(value);
   const off = d.getTimezoneOffset();
   const local = new Date(d.getTime() - off * 60000);
   return local.toISOString().slice(0, 10);
+}
+
+function todayStr() {
+  return dateStr(new Date());
 }
 
 export default function RechargeSheet({
@@ -21,9 +25,25 @@ export default function RechargeSheet({
   onCancel,
   onSave,
 }) {
+  // Is the customer still on an active plan? If so this recharge is a
+  // renewal, and the new plan can't start before the current one ends.
+  const active = useMemo(
+    () =>
+      Boolean(
+        customer.planId &&
+        customer.expiryDate &&
+        daysUntil(customer.expiryDate) >= 0 &&
+        customer.manualStatus !== "suspended",
+      ),
+    [customer],
+  );
+  const minDate = active ? dateStr(customer.expiryDate) : null;
+
   // Default the plan to whatever the customer is currently on.
   const [planId, setPlanId] = useState(customer.planId || "");
-  const [rechargeDate, setRechargeDate] = useState(todayStr());
+  const [rechargeDate, setRechargeDate] = useState(
+    active ? minDate : todayStr(),
+  );
   const [amount, setAmount] = useState(
     customer.lastAmount != null ? String(customer.lastAmount) : "",
   );
@@ -57,6 +77,16 @@ export default function RechargeSheet({
       setError("Pick a recharge date.");
       return;
     }
+    if (active && minDate && rechargeDate < minDate) {
+      setError(
+        `Start date can't be before the current plan ends (${formatDate(customer.expiryDate)}).`,
+      );
+      return;
+    }
+    if (!active && rechargeDate > todayStr()) {
+      setError("Recharge date can't be in the future.");
+      return;
+    }
     if (amount !== "" && (isNaN(Number(amount)) || Number(amount) < 0)) {
       setError("Amount looks wrong.");
       return;
@@ -64,12 +94,6 @@ export default function RechargeSheet({
     // Guard against an accidental double-recharge: if the customer's current
     // plan is still active, make staff confirm once. This still allows early
     // renewals, upgrades, and corrections — it just isn't a silent double-tap.
-    const active = Boolean(
-      customer.planId &&
-      customer.expiryDate &&
-      daysUntil(customer.expiryDate) >= 0 &&
-      customer.manualStatus !== "suspended",
-    );
     if (active && !confirmActive) {
       setConfirmActive(true);
       return;
@@ -118,6 +142,20 @@ export default function RechargeSheet({
             )}
           </div>
 
+          {active && (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3">
+              <Alert size={16} className="mt-0.5 shrink-0 text-amber-600" />
+              <p className="text-[13px] leading-relaxed text-amber-800">
+                Already active until{" "}
+                <span className="font-semibold">
+                  {formatDate(customer.expiryDate)}
+                </span>
+                . This is a renewal — the new plan can only start on or after
+                that date, and you'll need to confirm before it's saved.
+              </p>
+            </div>
+          )}
+
           {/* plan */}
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-medium text-ink">
@@ -143,15 +181,25 @@ export default function RechargeSheet({
           {/* date */}
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-medium text-ink">
-              Recharge date
+              {active ? "Plan start date" : "Recharge date"}
             </span>
             <input
               type="date"
               value={rechargeDate}
-              max={todayStr()}
-              onChange={(e) => setRechargeDate(e.target.value)}
+              min={active ? minDate : undefined}
+              max={active ? undefined : todayStr()}
+              onChange={(e) => {
+                setRechargeDate(e.target.value);
+                setError("");
+              }}
               className="box-border block w-full min-w-0 max-w-full rounded-xl border border-hairline bg-white px-3.5 py-3 text-base outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-100 sm:text-[15px]"
             />
+            {active && (
+              <span className="mt-1 block text-xs text-muted">
+                Can't start before the current plan ends (
+                {formatDate(customer.expiryDate)}).
+              </span>
+            )}
           </label>
 
           {/* computed expiry */}
@@ -217,21 +265,6 @@ export default function RechargeSheet({
               ))}
             </div>
           </div>
-
-          {confirmActive && (
-            <div className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3">
-              <Alert size={16} className="mt-0.5 shrink-0 text-amber-600" />
-              <p className="text-[13px] leading-relaxed text-amber-800">
-                This customer is already active until{" "}
-                <span className="font-semibold">
-                  {formatDate(customer.expiryDate)}
-                </span>
-                . Recharging now resets the expiry from the recharge date. Tap{" "}
-                <span className="font-semibold">Save recharge</span> again to
-                confirm.
-              </p>
-            </div>
-          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
