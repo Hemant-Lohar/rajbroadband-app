@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: theme("colors.surface");
+  color: theme("colors.ink");
+  font-family: theme("fontFamily.sans");
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Respect the notch on the sides and top. The BOTTOM inset is handled
+     per-component instead, so sheets can still run edge-to-edge while
+     their buttons stay clear of the home indicator. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0
+    env(safe-area-inset-left);
+}
+
+/* ── Mobile input zoom ────────────────────────────────────────────
+   iOS Safari zooms the page whenever you focus an input under 16px.
+   The fix lives on the input CLASSES (`text-base sm:text-[15px]`), not
+   here — an element selector like `input {}` loses to Tailwind's class,
+   so a base rule silently does nothing. Documented so nobody re-adds it.
+
+   We deliberately do NOT use `maximum-scale=1` in the viewport tag: it
+   would stop the zoom but also disable pinch-zoom entirely, which breaks
+   accessibility for anyone who needs to magnify. */
+
+/* Nothing should ever scroll sideways. */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+/* Reserve space for the scrollbar at all times, so the centred layout
+   doesn't jump sideways when a short view (no scrollbar) switches to a
+   tall one (scrollbar appears). */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* No double-tap-to-zoom delay on buttons — taps register immediately. */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Bottom safe-area helpers for anything pinned to the bottom edge. */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+.mb-safe {
+  margin-bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+}
+
+/* Remove tap highlight, keep it crisp on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hide the browser's built-in password reveal / clear buttons (Edge) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+/* Hide the native clear "X" on type=search — we render our own, and two
+   X's side by side is confusing. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+/* Numeric fields render nicer with tabular figures */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Custom scrollbar for results (desktop) */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: #d5dae1;
+  border-radius: 8px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── iOS input sizing ────────────────────────────────────────────
+   Safari on iOS sizes date/time/select inputs to their content plus the
+   native picker chrome, ignoring width:100% and overflowing the parent.
+   These rules force them back into their container. Desktop devtools does
+   NOT reproduce this — it only shows on a real device. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"],
+select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* The date input's inner value/spinner box also needs pinning on iOS. */
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+input[type="date"]::-webkit-calendar-picker-indicator {
+  margin-left: auto;
+}
